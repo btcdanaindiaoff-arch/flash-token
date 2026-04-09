@@ -95,3 +95,14 @@ After each successful deploy, deployment metadata is written to `deployments/<ne
 ## License
 
 MIT
+
+## Simple Wallet Connect UI
+
+A minimal static UI is included at `frontend/index.html` with a **Connect Wallet** button.
+
+```bash
+# Serve the frontend locally (example)
+npx serve frontend
+```
+
+Open the served URL in a browser with an EVM wallet extension (for example MetaMask), then click **Connect Wallet**.
