@@ -47,12 +47,17 @@ npm run compile
 # Run tests (18 test cases)
 npm test
 
+# Deploy to local Hardhat network
+npm run deploy
+
 # Deploy to BSC testnet
 PRIVATE_KEY=0x... npm run deploy:testnet
 
 # Deploy to BSC mainnet
 PRIVATE_KEY=0x... npm run deploy:bsc
 ```
+
+After each successful deploy, deployment metadata is written to `deployments/<network>-<chainId>.json`.
 
 ## Constructor Parameters
 

@@ -1,7 +1,13 @@
 const { ethers } = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 
 async function main() {
   const [deployer] = await ethers.getSigners();
+  const network = await ethers.provider.getNetwork();
+  const networkName = network.name;
+  const chainId = network.chainId.toString();
+
   console.log("Deploying FlashToken with account:", deployer.address);
   console.log("Balance:", ethers.formatEther(await ethers.provider.getBalance(deployer.address)), "BNB");
 
@@ -28,8 +34,8 @@ async function main() {
   console.log("\n========================================");
   console.log("DEPLOYMENT SUMMARY");
   console.log("========================================");
-  console.log("Network:           ", (await ethers.provider.getNetwork()).name);
-  console.log("Chain ID:          ", (await ethers.provider.getNetwork()).chainId.toString());
+  console.log("Network:           ", networkName);
+  console.log("Chain ID:          ", chainId);
   console.log("FlashToken:        ", tokenAddress);
   console.log("ExampleBorrower:   ", borrowerAddress);
   console.log("Token Name:        ", TOKEN_NAME);
@@ -39,18 +45,22 @@ async function main() {
   console.log("Max Flash Loan:    ", MAX_FLASH_LOAN.toLocaleString(), "tokens");
   console.log("========================================");
 
-  const fs = require("fs");
+  const deploymentDir = path.join(__dirname, "..", "deployments");
+  fs.mkdirSync(deploymentDir, { recursive: true });
+  const deploymentFile = path.join(deploymentDir, `${networkName}-${chainId}.json`);
+
   const deploymentInfo = {
-    network: (await ethers.provider.getNetwork()).name,
-    chainId: (await ethers.provider.getNetwork()).chainId.toString(),
+    network: networkName,
+    chainId,
     deployer: deployer.address,
     flashToken: tokenAddress,
     exampleBorrower: borrowerAddress,
     config: { name: TOKEN_NAME, symbol: TOKEN_SYMBOL, initialSupply: INITIAL_SUPPLY, flashFeeBps: FLASH_FEE_BPS, maxFlashLoan: MAX_FLASH_LOAN },
+    blockNumber: await ethers.provider.getBlockNumber(),
     timestamp: new Date().toISOString(),
   };
-  fs.writeFileSync("deployment.json", JSON.stringify(deploymentInfo, null, 2));
-  console.log("\nDeployment info saved to deployment.json");
+  fs.writeFileSync(deploymentFile, JSON.stringify(deploymentInfo, null, 2));
+  console.log(`\nDeployment info saved to ${deploymentFile}`);
 }
 
 main()
