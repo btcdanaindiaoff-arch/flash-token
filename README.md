@@ -1,108 +1,102 @@
-# Flash Token (FLASH)
+# FLASH Swap dApp (MetaMask + UI + Swap Logic)
 
-ERC-20 token with **ERC-3156 Flash Loan** capability. Enables uncollateralized borrowing of tokens within a single transaction.
+Full-stack EVM sample project containing:
+- Solidity contracts (token + swap pool)
+- Hardhat deploy/testing scripts
+- Browser UI for MetaMask wallet connect + swap execution
 
-## Features
+## Stack
+- **Contracts:** Solidity `0.8.20`
+- **Dev tooling:** Hardhat + Ethers v6
+- **Frontend:** Plain HTML/CSS/JS + Ethers browser provider
 
-- **Standard ERC-20** with mint/burn
-- **ERC-3156 Flash Loan** (flash mint) - borrow any amount, repay + fee in same tx
-- **Configurable flash fee** (default 0.1%, max 10%)
-- **Max flash loan cap** for safety
-- **Owner-controlled** fee and cap settings
-- **ReentrancyGuard** protection
-- **Custom errors** for gas efficiency
-- **Events** for all state changes
+## Folder Structure
 
-## Architecture
-
+```text
+flash-token/
+├── contracts/
+│   ├── FlashToken.sol          # ERC-20 + ERC-3156 flash-loan token (FLASH)
+│   ├── MockERC20.sol           # Mock USDC token for swap pair
+│   └── SimpleSwapPool.sol      # Constant-product AMM pool (FLASH/mUSDC)
+├── scripts/
+│   └── deploy.js               # Deploy all contracts + seed liquidity + output config
+├── test/
+│   ├── FlashToken.test.js      # Token + flash-loan test coverage
+│   └── SimpleSwapPool.test.js  # Swap pool tests
+├── frontend/
+│   ├── index.html              # Swap UI
+│   ├── app.js                  # MetaMask connect + quote + approve + swap logic
+│   ├── config.example.js       # Frontend config template
+│   └── config.js               # Local addresses (you create this file)
+├── deployments/                # Auto-generated deployment metadata
+├── hardhat.config.js
+├── package.json
+└── README.md
 ```
-FlashToken (ERC-20 + ERC-3156 Flash Lender)
-  |-- transfer / approve / transferFrom
-  |-- flashLoan (mint -> callback -> verify repayment -> burn)
-  |-- mint / burn (owner)
-  |-- setFlashFee / setMaxFlashLoan / setFeeReceiver
 
-ExampleFlashBorrower (ERC-3156 Flash Borrower)
-  |-- executeFlashLoan -> onFlashLoan callback
-```
+## Contracts Overview
 
-## How Flash Loans Work
+### 1) `FlashToken.sol`
+- ERC-20 token named FLASH
+- ERC-3156 flash-loan (flash mint)
+- Owner controls flash fee and max flash-loan amount
 
-1. Borrower calls `flashLoan(receiver, token, amount, data)`
-2. FlashToken **mints** `amount` tokens to the receiver
-3. FlashToken calls `receiver.onFlashLoan(...)` (your custom logic runs here)
-4. Receiver must **approve** repayment of `amount + fee` back to FlashToken
-5. FlashToken **burns** the principal and sends fee to feeReceiver
-6. All in a single atomic transaction - if repayment fails, everything reverts
+### 2) `MockERC20.sol`
+- Minimal mintable ERC-20
+- Used as **mUSDC** quote asset in the swap UI
 
-## Quick Start
+### 3) `SimpleSwapPool.sol`
+- Pair contract with reserves for token0/token1
+- Constant-product formula (`x * y = k`)
+- 0.30% fee (`FEE_BPS = 30`)
+- `getAmountOut(tokenIn, amountIn)` for quotes
+- `swapExactInput(tokenIn, amountIn, minAmountOut, recipient)` for swaps
+
+## Run Locally
 
 ```bash
-# Install dependencies
 npm install
-
-# Compile contracts
 npm run compile
-
-# Run tests (18 test cases)
 npm test
-
-# Deploy to local Hardhat network
 npm run deploy
-
-# Deploy to BSC testnet
-PRIVATE_KEY=0x... npm run deploy:testnet
-
-# Deploy to BSC mainnet
-PRIVATE_KEY=0x... npm run deploy:bsc
 ```
 
-After each successful deploy, deployment metadata is written to `deployments/<network>-<chainId>.json`.
+`npm run deploy` writes deployment JSON:
+- `deployments/<network>-<chainId>.json`
 
-## Constructor Parameters
+It includes a `frontendConfig` object used by the UI.
 
-| Parameter | Type | Description |
-|---|---|---|
-| `_name` | string | Token name (e.g., "Flash Token") |
-| `_symbol` | string | Token symbol (e.g., "FLASH") |
-| `_initialSupply` | uint256 | Initial supply in whole tokens |
-| `_flashFeeBps` | uint256 | Flash fee in basis points (10 = 0.1%) |
-| `_maxFlashLoan` | uint256 | Max flash loan in whole tokens (0 = unlimited) |
+## Configure Frontend
 
-## Default Deployment Config
-
-- **Name:** Flash Token
-- **Symbol:** FLASH
-- **Initial Supply:** 10,000,000 tokens
-- **Flash Fee:** 0.1% (10 bps)
-- **Max Flash Loan:** 1,000,000 tokens per tx
-
-## Security
-
-- Checks-Effects-Interactions pattern
-- ReentrancyGuard on flash loans
-- Custom errors (gas efficient)
-- Max fee cap (10%)
-- Input validation on all functions
-
-## Use Cases
-
-- **Arbitrage** - Borrow tokens to arbitrage between DEXes
-- **Liquidations** - Flash borrow to liquidate undercollateralized positions
-- **Collateral Swaps** - Swap collateral types without unwinding positions
-- **Self-Liquidation** - Close positions without upfront capital
-
-## License
-
-MIT
-
-## Simple Wallet Connect UI
-
-A minimal static UI is included at `frontend/index.html` with a **Connect Wallet** button.
-
+1. Copy template:
 ```bash
-# Serve the frontend locally (example)
+cp frontend/config.example.js frontend/config.js
+```
+
+2. Open `deployments/hardhat-31337.json` (or your network file) and copy values from `frontendConfig` into `frontend/config.js`.
+
+3. Serve frontend:
+```bash
 npx serve frontend
 ```
 
-Open the served URL in a browser with an EVM wallet extension (for example MetaMask), then click **Connect Wallet**.
+4. Open browser with MetaMask and connect.
+
+> For Hardhat local chain, run a local node and import one test account private key into MetaMask.
+
+## Swap Flow in UI
+
+1. Connect MetaMask
+2. Enter FLASH amount
+3. UI reads on-chain quote (`getAmountOut`)
+4. If needed, app sends `approve()` for FLASH
+5. App submits `swapExactInput()` with 0.5% slippage buffer
+6. Balances and pool reserves refresh
+
+## Security Notes
+- This is a learning/reference implementation, not production audited.
+- No LP token accounting in this minimal pool.
+- Use audited router/pool architecture before mainnet.
+
+## License
+MIT
